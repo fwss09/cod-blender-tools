@@ -12,6 +12,7 @@
 - Automatically load materials and DDS textures
 - Preview and assign camos
 - Attachment support
+- SEAnim support
 
 ## Screenshots
 
