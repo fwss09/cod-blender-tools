@@ -15,6 +15,8 @@
 
 ![GunCharacter importer](examples/example3.png)
 
+![GunCharacter importer](examples/example4.png)
+
 ![Character importer](examples/example1.png)
 
 ![Gun importer](examples/example2.png)
