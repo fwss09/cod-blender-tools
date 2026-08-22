@@ -57,26 +57,21 @@ def read_image_map(metadata_file):
 
 
 def find_metadata(asset_folder, material_name):
-    candidates = [material_name]
-    stripped_name = re.sub(r"\.\d{3}$", "", material_name)
-    if stripped_name not in candidates:
-        candidates.append(stripped_name)
+    material_key = re.sub(r"\.\d{3}$", "", material_name).lower()
+    candidates = {material_key}
+    metadata_files = list(asset_folder.rglob("*_images.txt"))
+    mat_info = asset_folder / "_mat_info"
+    if mat_info.is_dir():
+        metadata_files.extend(mat_info.rglob("*.txt"))
 
-    for name in candidates:
-        for metadata in (
-            asset_folder / (name + "_images.txt"),
-            asset_folder / "_mat_info" / (name + ".txt"),
-        ):
-            if metadata.exists():
-                return metadata
+    for metadata in metadata_files:
+        metadata_key = metadata.stem.removesuffix("_images").lower()
+        if metadata_key in candidates:
+            return metadata
 
-    for metadata in list(asset_folder.glob("*_images.txt")) + list(
-        (asset_folder / "_mat_info").glob("*.txt")
-        if (asset_folder / "_mat_info").is_dir()
-        else []
-    ):
-        metadata_name = metadata.stem.removesuffix("_images")
-        if metadata_name in candidates:
+    for metadata in metadata_files:
+        metadata_key = metadata.stem.removesuffix("_images").lower()
+        if material_key in metadata_key or metadata_key in material_key:
             return metadata
     return None
 
@@ -428,13 +423,13 @@ def classify_component(folder_name):
         return "Base"
     categories = (
         ("Receiver", ("_rec", "receiver")),
-        ("Barrel", ("_bar", "barrel")),
+        ("Barrel", ("_bar", "barrel", "barmed")),
         ("Magazine", ("_mag", "xmag", "smag")),
-        ("Grip", ("_grip", "_pgrp", "pstlgrp")),
+        ("Grip", ("_grip", "_pgrp", "pstlgrp", "grip")),
         ("Stock", ("_stock",)),
         ("Trigger", ("_trig", "trigger")),
         ("Muzzle", ("_mzl", "muzzle")),
-        ("Laser", ("_lsr", "laser")),
+        ("Laser", ("_lsr", "laser", "flash")),
         ("Optic", ("optic", "reflex", "scope")),
         ("Hammer", ("hammer",)),
     )
@@ -455,7 +450,14 @@ def scan_weapon_root(root):
         slots.setdefault(category, []).append(folder)
 
     if "Base" not in slots:
-        raise ValueError("No wpn_* base model was found")
+        receiver_folders = slots.get("Receiver", [])
+        if receiver_folders:
+            slots["Base"] = receiver_folders
+            del slots["Receiver"]
+        else:
+            raise ValueError(
+                "No base weapon model found. Expected a wpn_* or receiver model."
+            )
     return slots
 
 
@@ -550,8 +552,47 @@ def consolidate_armatures(imported_objects, anchor_armature):
     if anchor_armature is None:
         return
 
+    source_armatures = [
+        obj for obj in imported_objects
+        if obj.type == "ARMATURE" and obj is not anchor_armature
+    ]
+    existing_bones = {
+        bone.name for bone in anchor_armature.data.bones
+    }
+
+    bpy.context.view_layer.objects.active = anchor_armature
+    anchor_armature.select_set(True)
+    bpy.ops.object.mode_set(mode="EDIT")
+    try:
+        for source in source_armatures:
+            to_anchor = anchor_armature.matrix_world.inverted() @ source.matrix_world
+            created = {}
+            for source_bone in source.data.bones:
+                if source_bone.name in existing_bones:
+                    continue
+                target = anchor_armature.data.edit_bones.new(source_bone.name)
+                target.head = to_anchor @ source_bone.head_local
+                target.tail = to_anchor @ source_bone.tail_local
+                if (target.tail - target.head).length < 0.001:
+                    target.tail = target.head + (0.0, 0.05, 0.0)
+                created[source_bone.name] = target
+                existing_bones.add(source_bone.name)
+
+            for source_bone in source.data.bones:
+                target = created.get(source_bone.name)
+                if target is None or source_bone.parent is None:
+                    continue
+                target.parent = anchor_armature.data.edit_bones.get(
+                    source_bone.parent.name
+                )
+    finally:
+        bpy.ops.object.mode_set(mode="OBJECT")
+        anchor_armature.select_set(False)
+
     for obj in imported_objects:
         if obj.type != "MESH":
+            continue
+        if obj.name.startswith("semodel_bone_vis"):
             continue
         for modifier in obj.modifiers:
             if modifier.type == "ARMATURE":
@@ -560,13 +601,11 @@ def consolidate_armatures(imported_objects, anchor_armature):
         obj.parent = anchor_armature
         obj.matrix_world = world_matrix
 
-    for obj in list(bpy.data.objects):
-        if obj.type != "ARMATURE" or obj is anchor_armature:
-            continue
+    for obj in source_armatures:
         bpy.data.objects.remove(obj, do_unlink=True)
 
     for obj in list(bpy.data.objects):
-        if obj.name.startswith("semodel_bone_vis"):
+        if obj.name.startswith("semodel_bone_vis") and obj not in anchor_armature.children:
             if any(
                 pose_bone.custom_shape is obj
                 for pose_bone in anchor_armature.pose.bones
@@ -585,6 +624,7 @@ def build_weapon(root, selected_paths):
     weapon_root = bpy.data.objects.new("Weapon_Root", None)
     weapon_root.empty_display_type = "PLAIN_AXES"
     weapon_root.empty_display_size = 0.5
+    weapon_root["cod_weapon_root"] = True
     collection.objects.link(weapon_root)
 
     category_empties = {}
@@ -627,16 +667,24 @@ def build_weapon(root, selected_paths):
     if anchor_armature is None:
         anchor_armature = imported_armatures.get("Base")
     if anchor_armature:
+        anchor_armature["cod_weapon_anchor"] = True
+        anchor_armature["cod_weapon_root"] = weapon_root.name
         anchor_world = anchor_armature.matrix_world.copy()
         anchor_armature.parent = weapon_root
         anchor_armature.matrix_world = anchor_world
         for category, armature in imported_armatures.items():
+            armature["cod_weapon_component"] = True
+            armature["cod_weapon_root"] = weapon_root.name
             if armature is anchor_armature or category in {"Base", "Receiver"}:
                 continue
             if not attach_component_armature(armature, anchor_armature, category):
                 print(
                     "Attachment bone not found for category '{}'".format(category)
                 )
+        consolidate_armatures(all_imported_objects, anchor_armature)
+        anchor_armature.name = "Weapon_RIG"
+        anchor_armature["cod_weapon_anchor"] = True
+        anchor_armature["cod_weapon_root"] = weapon_root.name
     if total_meshes == 0:
         raise ValueError("Selected components contain no mesh geometry")
 
