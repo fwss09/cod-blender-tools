@@ -21,13 +21,16 @@
     <td><img src="examples/example3.png" alt="GunCharacter importer" width="100%"/></td>
     <td><img src="examples/example4.png" alt="GunCharacter importer" width="100%"/></td>
   </tr>
-  <tr>
-    <td><img src="examples/example5.png" alt="FPV gun" width="100%"/></td>
-    <td><img src="examples/example1.png" alt="Character importer" width="100%"/></td>
-  </tr>
 </table>
 
-![Gun importer](examples/example2.png)
+![FPV gun](examples/example5.png)
+
+<table>
+  <tr>
+    <td><img src="examples/example1.png" alt="GunCharacter importer" width="100%"/></td>
+    <td><img src="examples/example2.png" alt="GunCharacter importer" width="100%"/></td>
+  </tr>
+</table>
 
 ## Requirements
 
