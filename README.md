@@ -10,6 +10,7 @@
 - Import character body and head into one rig
 - Import first-person arms separately
 - Automatically load materials and DDS textures
+- Preview and assign camos
 
 ## Screenshots
 
