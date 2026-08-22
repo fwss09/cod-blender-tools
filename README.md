@@ -19,6 +19,8 @@
 
 ![GunCharacter importer](examples/example4.png)
 
+![FPV gun](examples/example5.png)
+
 ![Character importer](examples/example1.png)
 
 ![Gun importer](examples/example2.png)
