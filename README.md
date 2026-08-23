@@ -35,7 +35,7 @@
 ## Requirements
 
 - Blender 4.0
-- `io_model_semodel` Blender add-on
+- [io_model_semodel](https://github.com/dtzxporter/io_model_semodel) Blender add-on
 
 ## Installation
 
