@@ -51,10 +51,10 @@ Open the 3D View sidebar with `N`.
 
 The tools are available in the **COD** tab:
 
-- **COD MW2 Character** — import characters or first-person arms.
-- **COD MW2 Gun** — import and assemble weapon parts.
-- **COD MW2 Attachments**
-- **COD MW2 Camo**
+- **COD MW Character** — import characters or first-person arms.
+- **COD MW Gun** — import and assemble weapon parts.
+- **COD MW Attachments**
+- **COD MW Camo**
 
 
 Select the asset folder through the folder selection button. No paths need to be configured inside the scripts.
@@ -66,6 +66,7 @@ The tools are designed for Call of Duty assets.
 Currently tested with:
 
 - Call of Duty: Modern Warfare II
+- Call of Duty: Modern Warfare III
 
 Support for additional Call of Duty games may be added in the future.
 
